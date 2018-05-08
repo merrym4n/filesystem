@@ -1,22 +1,57 @@
-def byte_to_hex(byte): #return "0x{:02x}".format(ord(btte))
-	'''
+def byte_to_hex(byte):
+	# type 1
+	return "0x{:02x}".format(ord(byte))
+
+	# type 2
 	enc = hex(ord(byte))
 	if len(str(enc)) == 3 : enc = "0x0" + str(enc)[2:]
 	return str(enc)
-	'''
-	enc = "0x{:02x}".format(ord(byte))
-	return enc
+
+def little_big(little_address):
+	little_address.reverse()
+	big_address = int(little_address[0],16)
+	for byte in little_address[1:]:
+		big_address *= 0x100
+		big_address += int(byte,16)
+	if len(little_address) == 2: return "0x{:04x}".format(big_address,16)
+	if len(little_address) == 3: return "0x{:06x}".format(big_address,16)
+	if len(little_address) == 4: return "0x{:08x}".format(big_address,16)
+	return "except"
+
+def print_list(data_list):
+	counter = 0
+	for each_data_list in data_list:
+		counter += 1
+		print each_data_list,
+		if counter % 0x10 == 0: print
+	if counter % 0x10 != 0: print
+
+
+class mbr:
+	def __init__(self, mbr_data):
+		self.boot_code	= mbr_data[:446]
+		self.partition1	= mbr_data[446:462]
+		self.partition2	= mbr_data[462:478]
+		self.partition3	= mbr_data[478:494]
+		self.partition4	= mbr_data[494:510]
+		self.signature	= mbr_data[510:512]
+
+	def check_signature(self):
+		signature = little_big(self.signature)
+		if signature == "0xaa55": return 1
+		return 0
 
 def mbr_parser():
-	try:
+	try:	# mac
 		with open("/dev/disk3", "rb") as f:
 			mbr = f.read(512)
 			mbr_list = []
 			for mbr_byte in mbr:
 				mbr_list.append(byte_to_hex(mbr_byte))
-			print("success to read mbr")
+			print("Success to read mbr")
 			return mbr_list
-	except:
+
+	except:	# etc
 		backup_list = [
 		'0x33', '0xc0', '0x8e', '0xd0', '0xbc', '0x00', '0x7c', '0x8e',
 		'0xc0', '0x8e', '0xd8', '0xbe', '0x00', '0x7c', '0xbf', '0x00',
@@ -85,66 +120,91 @@ def mbr_parser():
 		print("Success to open backup")
 		return backup_list
 
-def check_signature(signature):
-	signature = int(signature[1],16)*0x100 + int(signature[0], 16)
-	if signature == 0xaa55: return 1
-	return 0
+partition_types = {
+	0x00:"Empty",
+	0x01:"DOS 12-bit FAT, CHS",
+	0x02:"XENUX root file system, CHS",
+	0x03:"XENIX / usr file system (obsolete)",
+	0x04:"DOS 16-bit FAT (up to 32M), CHS",
+	0x05:"DOS 3.3+extended partitino, CHS",
+	0x06:"DOS 3.3.1+Large File System (16-bit FAT, over 32M), CHS",
+	0x07:"Advanced Unix, exFAT, NTFS",
+	0x08:"OS/2(V1.0-1.3 only, AIX bootable partion, \
+	Commodore DOS, DELL partition spanning multiple drives",
+	0x09:"AIX data partion",
+	0x0A:"OPUS, Coherent swap partion, OS/2 Boot Manager",
+	0x0B:"Windows 95 with 32-bit FAT, CHS",
+	0x0C:"WIndows 95 with 32-bit FAT (using LBA-mode INT 13 extensions), LBA",
+	0xFE:"LANstep, IBM PS/2 IML",
+	0xFF:"XENIX bad block table",
+}
+
 
 class partition:
 	def __init__(self, partition_data):
 		self.flag		= partition_data[0]
-		self.start_CHS	= partition_data[1:3]
+		self.start_CHS	= partition_data[1:4]
 		self.type		= partition_data[4]
-		self.end_CHS	= partition_data[5:7]
-		self.start_LBA	= partition_data[8:11]
-		self.size		= partition_data[12:15]
+		self.end_CHS	= partition_data[5:8]
+		self.start_LBA	= partition_data[8:12]
+		self.size		= partition_data[12:16]
 
 	def check_boot_flag(self):
-		if self.flag == "0x80": return "bootable"
-		return "unbootable"
+		print("Boot flag\t:"),
+		if self.flag == "0x80":
+			print("Bootable")
+			return 1
+		print("Unbootable")
+		return 0
 
-	def check_CHS_address(address):
-		address.reverse()
-		CHS_address = int(address[0],16)*0x10000 + int(address[1],16)*0x100 + int(address[2],16)
-	pass
+	def check_start_CHS(self):
+		address = little_big(self.start_CHS)
+		print("start_CHS\t: " + address)
+		return address
+
+	def check_type(self):
+		print("type\t\t: %s\t\t(%s)" % \
+			(self.type, partition_types.get(int(self.type,16), "Invalid")))
+		return self.type
+
+	def check_end_CHS(self):
+		address = little_big(self.end_CHS)
+		print("end_CHS\t\t: " + address)
+		return address
+
+	def check_start_LBA(self):
+		address = little_big(self.start_LBA)
+		print("start_LBA\t: " + address)
+		return address
+
+	def check_size(self):
+		size = little_big(self.size)
+		print("size\t\t: %s(%sMB)" % (size, int(size,16)/(2**11)))
+		return size
 
 def check_partition(partition_data):
-	print("partition1")
-	partition1 = partition(partition_data[:16])
-	print(partition1.check_boot_flag())
+	print("==========================")
+	print("partition")
+	print_list(partition_data)
+	partition1 = partition(partition_data)
 
-	partition1_ = partition_data[:16]
-	print_list(partition1_)
-
-	print("partition2")
-	partition2 = partition_data[16:32]
-	print_list(partition2)
-	
-	print("partition3")
-	print_list(partition_data[32:48])
-	
-	print("partition4")
-	print_list(partition_data[48:])
-
-def print_list(data_list):
-	counter = 0
-	for each_data_list in data_list:
-		counter += 1
-		print each_data_list,
-		if counter % 0x10 == 0: print
-	print
+	partition1.check_boot_flag()
+	partition1.check_start_CHS()
+	partition1.check_type()
+	partition1.check_end_CHS()
+	partition1.check_start_LBA()
+	partition1.check_size()
 
 def main():
-	mbr_data = mbr_parser()
-	if check_signature(mbr_data[-2:]):
-		print(mbr_data)
+	mbr_data= mbr_parser()
+	myMBR	= mbr(mbr_data)
+	if myMBR.check_signature():
+		check_partition(mbr_data[446:462])
+		check_partition(mbr_data[462:478])
+		check_partition(mbr_data[478:494])
+		check_partition(mbr_data[494:510])
 	else: print("fail to read mbr")
 
-def main_back():
-	if check_signature(backup_list[-2:]):
-		print_list(backup_list[:446])
-		check_partition(backup_list[446:446+0x40])
 
 if __name__ == "__main__":
-	#main()
 	main()
