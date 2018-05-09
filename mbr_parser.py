@@ -1,11 +1,6 @@
-def byte_to_hex(byte):
-	# type 1
-	return "0x{:02x}".format(ord(byte))
-
-	# type 2
-	enc = hex(ord(byte))
-	if len(str(enc)) == 3 : enc = "0x0" + str(enc)[2:]
-	return str(enc)
+def byte_to_hex(byte): 
+	#return "0x{:02x}".format(ord(byte))
+	return hex(ord(byte))
 
 def little_big(little_address):
 	little_address.reverse()
@@ -26,7 +21,6 @@ def print_list(data_list):
 		if counter % 0x10 == 0: print
 	if counter % 0x10 != 0: print
 
-
 class mbr:
 	def __init__(self, mbr_data):
 		self.boot_code	= mbr_data[:446]
@@ -38,8 +32,10 @@ class mbr:
 
 	def check_signature(self):
 		signature = little_big(self.signature)
+		print("Disk_signature\t: " + signature)
 		if signature == "0xaa55": return 1
 		return 0
+
 
 def mbr_parser():
 	try:	# mac
@@ -139,7 +135,6 @@ partition_types = {
 	0xFF:"XENIX bad block table",
 }
 
-
 class partition:
 	def __init__(self, partition_data):
 		self.flag		= partition_data[0]
@@ -178,9 +173,14 @@ class partition:
 		return address
 
 	def check_size(self):
-		size = little_big(self.size)
-		print("size\t\t: %s(%sMB)" % (size, int(size,16)/(2**11)))
+		size= little_big(self.size)
+		#print("l_b(self.size)" + size)
+		mb	= (size, int(size,16)/(2**11))
+		print(mb[1])
+		#gb	= int(mb)/(2**4)
+		print("size\t\t: %s\t(%sMB)" % mb)
 		return size
+
 
 def check_partition(partition_data):
 	print("==========================")
@@ -197,6 +197,7 @@ def check_partition(partition_data):
 
 def main():
 	mbr_data= mbr_parser()
+	print_list(mbr_data)
 	myMBR	= mbr(mbr_data)
 	if myMBR.check_signature():
 		check_partition(mbr_data[446:462])
@@ -204,7 +205,6 @@ def main():
 		check_partition(mbr_data[478:494])
 		check_partition(mbr_data[494:510])
 	else: print("fail to read mbr")
-
 
 if __name__ == "__main__":
 	main()
