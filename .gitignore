@@ -1,0 +1,8 @@
+#imaging disk, related source
+imaging
+
+#shell
+!imaging/dd_watch.sh
+
+#mac
+.DS_Store
