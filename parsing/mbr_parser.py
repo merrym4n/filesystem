@@ -44,7 +44,7 @@ class mbr:
 def mbr_parser():
 	try:	# mac
 		#with open("/dev/disk5", "rb") as f:
-		with open("imaging/sandisk32", "rb") as f:
+		with open("../imaging/sandisk32", "rb") as f:
 			mbr = f.read(512)
 			mbr_list = []
 			for mbr_byte in mbr:
@@ -128,13 +128,13 @@ partition_types = {
 	0x02:"XENUX root file system, CHS",
 	0x03:"XENIX / usr file system (obsolete)",
 	0x04:"DOS 16-bit FAT (up to 32M), CHS",
-	0x05:"DOS 3.3+extended partitino, CHS",
+	0x05:"DOS 3.3+extended partition, CHS",
 	0x06:"DOS 3.3.1+Large File System (16-bit FAT, over 32M), CHS",
 	0x07:"Advanced Unix, exFAT, NTFS",
-	0x08:"OS/2(V1.0-1.3 only, AIX bootable partion, \
+	0x08:"OS/2(V1.0-1.3 only, AIX bootable partition, \
 	Commodore DOS, DELL partition spanning multiple drives",
-	0x09:"AIX data partion",
-	0x0A:"OPUS, Coherent swap partion, OS/2 Boot Manager",
+	0x09:"AIX data partition",
+	0x0A:"OPUS, Coherent swap partition, OS/2 Boot Manager",
 	0x0B:"Windows 95 with 32-bit FAT, CHS",
 	0x0C:"WIndows 95 with 32-bit FAT (using LBA-mode INT 13 extensions), LBA",
 	0xFE:"LANstep, IBM PS/2 IML",
@@ -143,12 +143,25 @@ partition_types = {
 
 class partition:
 	def __init__(self, partition_data):
+		self.all		= partition_data
 		self.flag		= partition_data[0]
 		self.start_CHS	= partition_data[1:4]
 		self.type		= partition_data[4]
 		self.end_CHS	= partition_data[5:8]
 		self.start_LBA	= partition_data[8:12]
 		self.size		= partition_data[12:16]
+
+	def check_partition(self):
+		print("============================")
+		print("Partition")
+		if int(partition(self.all).check_size(0),16):
+			partition(self.all).check_boot_flag();
+			partition(self.all).check_start_CHS();
+			partition(self.all).check_type();
+			partition(self.all).check_end_CHS();
+			partition(self.all).check_start_LBA();
+			partition(self.all).check_size(1);
+		else: print("Empty")
 
 	def check_boot_flag(self):
 		print("Boot flag\t:"),
@@ -188,31 +201,14 @@ class partition:
 			else: pass
 		return size
 
-def check_partition(partition_data):
-	print("============================")
-	print("Partition")
-	partition1 = partition(partition_data)
-	if int(partition1.check_size(0),16):
-		transfer_form().print_list(partition_data)
-		partition1.check_boot_flag()
-		partition1.check_start_CHS()
-		partition1.check_type()
-		partition1.check_end_CHS()
-		address = partition1.check_start_LBA()
-		partition1.check_size(1)
-	else: print("Empty")
-
 def main():
 	mbr_data= mbr_parser()
 	transfer_form().print_list(mbr_data)
 	myMBR	= mbr(mbr_data)
 	if myMBR.check_signature():
-		check_partition(mbr_data[446:462])
-		check_partition(mbr_data[462:478])
-		check_partition(mbr_data[478:494])
-		check_partition(mbr_data[494:510])
+		for i in range(4):
+			partition(mbr_data[446+i*16:446+(i+1)*16]).check_partition()
 		print("============================")
-
 	else: print("fail to read mbr")
 
 if __name__ == "__main__":
