@@ -15,16 +15,16 @@ class transfer_form:
 		if len(little_address) == 4: return "0x{:08x}".format(big_address,16)
 		return "except"
 
-def print_list(data_list):
-	start	= 0
-	end		= len(data_list)
+	def print_list(self, data_list):
+		start	= 0
+		end		= len(data_list)
 
-	counter = 0
-	for each_data_list in data_list:
-		counter += 1
-		print each_data_list,
-		if counter % 0x10 == 0: print
-	if counter % 0x10 != 0: print
+		counter = 0
+		for each_data_list in data_list:
+			counter += 1
+			print each_data_list,
+			if counter % 0x10 == 0: print
+		if counter % 0x10 != 0: print
 
 class mbr:
 	def __init__(self, mbr_data):
@@ -41,10 +41,10 @@ class mbr:
 		if signature == "0xaa55": return 1
 		return 0
 
-
 def mbr_parser():
 	try:	# mac
-		with open("/dev/disk5", "rb") as f:
+		#with open("/dev/disk5", "rb") as f:
+		with open("imaging/sandisk32", "rb") as f:
 			mbr = f.read(512)
 			mbr_list = []
 			for mbr_byte in mbr:
@@ -186,7 +186,6 @@ class partition:
 			if gb != 0: print("size\t\t: %s\t(%sGB)" % (size, gb))
 			elif mb!= 0: print("size\t\t: %s\t(%sMB)" % (size, mb))
 			else: pass
-
 		return size
 
 def check_partition(partition_data):
@@ -194,18 +193,18 @@ def check_partition(partition_data):
 	print("Partition")
 	partition1 = partition(partition_data)
 	if int(partition1.check_size(0),16):
-		print_list(partition_data)
+		transfer_form().print_list(partition_data)
 		partition1.check_boot_flag()
 		partition1.check_start_CHS()
 		partition1.check_type()
 		partition1.check_end_CHS()
-		partition1.check_start_LBA()
+		address = partition1.check_start_LBA()
 		partition1.check_size(1)
 	else: print("Empty")
 
 def main():
 	mbr_data= mbr_parser()
-	print_list(mbr_data)
+	transfer_form().print_list(mbr_data)
 	myMBR	= mbr(mbr_data)
 	if myMBR.check_signature():
 		check_partition(mbr_data[446:462])
@@ -213,6 +212,7 @@ def main():
 		check_partition(mbr_data[478:494])
 		check_partition(mbr_data[494:510])
 		print("============================")
+
 	else: print("fail to read mbr")
 
 if __name__ == "__main__":
