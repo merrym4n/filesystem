@@ -1,19 +1,24 @@
-def byte_to_hex(byte): 
-	#return "0x{:02x}".format(ord(byte))
-	return hex(ord(byte))
+class transfer_form:
+	def byte_to_hex(self, byte): 
+		return "0x{:02x}".format(ord(byte))
+		return hex(ord(byte))
 
-def little_big(little_address):
-	little_address.reverse()
-	big_address = int(little_address[0],16)
-	for byte in little_address[1:]:
-		big_address *= 0x100
-		big_address += int(byte,16)
-	if len(little_address) == 2: return "0x{:04x}".format(big_address,16)
-	if len(little_address) == 3: return "0x{:06x}".format(big_address,16)
-	if len(little_address) == 4: return "0x{:08x}".format(big_address,16)
-	return "except"
+	def little_big(self, little_address):
+		little_address.reverse()
+		big_address = int(little_address[0],16)
+		for byte in little_address[1:]:
+			big_address *= 0x100
+			big_address += int(byte,16)
+		little_address.reverse()
+		if len(little_address) == 2: return "0x{:04x}".format(big_address,16)
+		if len(little_address) == 3: return "0x{:06x}".format(big_address,16)
+		if len(little_address) == 4: return "0x{:08x}".format(big_address,16)
+		return "except"
 
 def print_list(data_list):
+	start	= 0
+	end		= len(data_list)
+
 	counter = 0
 	for each_data_list in data_list:
 		counter += 1
@@ -31,7 +36,7 @@ class mbr:
 		self.signature	= mbr_data[510:512]
 
 	def check_signature(self):
-		signature = little_big(self.signature)
+		signature = transfer_form().little_big(self.signature)
 		print("Disk_signature\t: " + signature)
 		if signature == "0xaa55": return 1
 		return 0
@@ -39,15 +44,16 @@ class mbr:
 
 def mbr_parser():
 	try:	# mac
-		with open("/dev/disk3", "rb") as f:
+		with open("/dev/disk5", "rb") as f:
 			mbr = f.read(512)
 			mbr_list = []
 			for mbr_byte in mbr:
-				mbr_list.append(byte_to_hex(mbr_byte))
+				mbr_list.append(transfer_form().byte_to_hex(mbr_byte))
 			print("Success to read mbr")
 			return mbr_list
 
-	except:	# etc
+	except IOError as e:	# etc
+		print(e)
 		backup_list = [
 		'0x33', '0xc0', '0x8e', '0xd0', '0xbc', '0x00', '0x7c', '0x8e',
 		'0xc0', '0x8e', '0xd8', '0xbe', '0x00', '0x7c', '0xbf', '0x00',
@@ -153,47 +159,49 @@ class partition:
 		return 0
 
 	def check_start_CHS(self):
-		address = little_big(self.start_CHS)
+		address = transfer_form().little_big(self.start_CHS)
 		print("start_CHS\t: " + address)
 		return address
 
 	def check_type(self):
-		print("type\t\t: %s\t\t(%s)" % \
+		print("type\t\t: %s\t\t\t(%s)" % \
 			(self.type, partition_types.get(int(self.type,16), "Invalid")))
 		return self.type
 
 	def check_end_CHS(self):
-		address = little_big(self.end_CHS)
+		address = transfer_form().little_big(self.end_CHS)
 		print("end_CHS\t\t: " + address)
 		return address
 
 	def check_start_LBA(self):
-		address = little_big(self.start_LBA)
+		address = transfer_form().little_big(self.start_LBA)
 		print("start_LBA\t: " + address)
 		return address
 
-	def check_size(self):
-		size= little_big(self.size)
-		#print("l_b(self.size)" + size)
-		mb	= (size, int(size,16)/(2**11))
-		print(mb[1])
-		#gb	= int(mb)/(2**4)
-		print("size\t\t: %s\t(%sMB)" % mb)
+	def check_size(self, flag):
+		size= transfer_form().little_big(self.size)
+		mb	= int(size,16)//(2**11)
+		gb	= int(mb)/(2**10)
+		if flag:
+			if gb != 0: print("size\t\t: %s\t(%sGB)" % (size, gb))
+			elif mb!= 0: print("size\t\t: %s\t(%sMB)" % (size, mb))
+			else: pass
+
 		return size
 
-
 def check_partition(partition_data):
-	print("==========================")
-	print("partition")
-	print_list(partition_data)
+	print("============================")
+	print("Partition")
 	partition1 = partition(partition_data)
-
-	partition1.check_boot_flag()
-	partition1.check_start_CHS()
-	partition1.check_type()
-	partition1.check_end_CHS()
-	partition1.check_start_LBA()
-	partition1.check_size()
+	if int(partition1.check_size(0),16):
+		print_list(partition_data)
+		partition1.check_boot_flag()
+		partition1.check_start_CHS()
+		partition1.check_type()
+		partition1.check_end_CHS()
+		partition1.check_start_LBA()
+		partition1.check_size(1)
+	else: print("Empty")
 
 def main():
 	mbr_data= mbr_parser()
@@ -204,6 +212,7 @@ def main():
 		check_partition(mbr_data[462:478])
 		check_partition(mbr_data[478:494])
 		check_partition(mbr_data[494:510])
+		print("============================")
 	else: print("fail to read mbr")
 
 if __name__ == "__main__":
