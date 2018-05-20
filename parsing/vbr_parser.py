@@ -10,9 +10,13 @@ class transfer_form:
 			big_address *= 0x100
 			big_address += int(byte,16)
 		little_address.reverse()
+		if len(little_address) == 1: return "0x{:02x}".format(big_address,16)
 		if len(little_address) == 2: return "0x{:04x}".format(big_address,16)
 		if len(little_address) == 3: return "0x{:06x}".format(big_address,16)
 		if len(little_address) == 4: return "0x{:08x}".format(big_address,16)
+		if len(little_address) == 7: return "0x{:014x}".format(big_address,16)
+		if len(little_address) == 8: return "0x{:016x}".format(big_address,16)
+		if len(little_address) == 9: return "0x{:018x}".format(big_address,16)
 		return "except"
 
 	def print_list(self, data_list):
@@ -23,25 +27,64 @@ class transfer_form:
 			if counter % 0x10 == 0: print
 		if counter % 0x10 != 0: print
 
+
 class vbr:
 	def __init__(self, vbr_data):
-		self.jump	= vbr_data[0:3]
-		self.OEM	= vbr_data[3:11]
-		self.BPB	= vbr_data[11:36]
-		self.Ex_BPB	= vbr_data[36:84]
-		self.bootstrap	= vbr_data[84:510]
-		self.signature	= vbr_data[510:512]
+		self.jump		= vbr_data[0x00:0x03]
+		self.OEM		= vbr_data[0x03:0x0b]
+		self.BPB		= vbr_data[0x0b:0x24]
+		self.Ex_BPB		= vbr_data[0x24:0x54]
+		self.bootstrap	= vbr_data[0x54:0x1fe]
+		self.signature	= vbr_data[0x1fe:0x200]
 
 	def print_vbr(self):
-		print("jump"		+ str(self.jump))
-		print("OEM"			+ str(self.OEM))
-		print("BPB"			+ str(self.BPB))
-		print("bootstrap"	+ str(self.bootstrap))
-		print("signature"	+ str(self.signature))
+		print("jump\t\t\t\t\t\t:"	+ transfer_form().little_big(self.jump))
+		print("OEM\t\t\t\t\t\t\t:"	+ transfer_form().little_big(self.OEM))
+		#print("BPB"			+ str(self.BPB))
+		#print("Ex_BPB"		+ str(self.Ex_BPB))
+		BPB(self.BPB, self.Ex_BPB).print_BPB()
+		#print("bootstrap"	+ str(self.bootstrap))
+		print("signature\t\t\t\t\t:"+ transfer_form().little_big(self.signature))
 
+
+class BPB:
+	def __init__(self, BPB_data, Ex_BPB_data):
+		self.BPB_data 			= BPB_data
+		self.byte_per_sector	= BPB_data[0x00:0x02]
+		self.sector_per_cluster	= BPB_data[0x02:0x03]
+		self.reserved_sectors	= BPB_data[0x03:0x05]
+		self.media				= BPB_data[0x0a:0x0b]
+		
+		self.Ex_BPB_data 				= Ex_BPB_data
+		self.total_sectors				= Ex_BPB_data[0x05:0x0d]
+		self.start_cluster_MFT			= Ex_BPB_data[0x0d:0x15]
+		self.start_cluster_MFTMirr		= Ex_BPB_data[0x15:0x1d]
+		self.clusters_per_MFT_entry		= Ex_BPB_data[0x1d:0x1e]
+		self.clusters_per_index_buffer	= Ex_BPB_data[0x22:0x23]
+		self.volume_serial_number		= Ex_BPB_data[0x27:0x2f]
+		
+	def print_BPB(self):
+		print("========== BPB ==========")
+		#print("BPB_data\t\t\t\t\t:"			+ str(self.BPB_data))
+		print("byte_per_sector\t\t\t\t:"	+ transfer_form().little_big(self.byte_per_sector))
+		print("sector_per_cluster\t\t\t:"	+ transfer_form().little_big(self.sector_per_cluster))
+		print("reserved_sectors\t\t\t:"		+ transfer_form().little_big(self.reserved_sectors))
+		print("media\t\t\t\t\t\t:"			+ transfer_form().little_big(self.media))
+		
+		print("========= Ex_BPB ========")
+		#print("Ex_BPB_data\t\t\t\t\t:"		+ str(self.BPB_data))
+		print("total_sectors\t\t\t\t:"		+ transfer_form().little_big(self.total_sectors))
+		print("start_cluster_MFT\t\t\t:"	+ transfer_form().little_big(self.start_cluster_MFT))
+		print("start_cluster_MFTMirr\t\t:"	+ transfer_form().little_big(self.start_cluster_MFTMirr))
+		print("clusters_per_MFT_entry\t\t:"	+ transfer_form().little_big(self.clusters_per_MFT_entry))
+		print("clusters_per_index_buffer\t:"+ transfer_form().little_big(self.clusters_per_index_buffer))
+		print("volume_serial_number\t\t:"	+ transfer_form().little_big(self.volume_serial_number))
+		print()
+		
+		
 def vbr_parser():
 	try:
-		with open("../imaging/younus2-origin", "rb") as f:
+		with open("../imaging/younus2-origin.001", "rb") as f:
 			vbr = f.read(512)
 			vbr_list = []
 			for vbr_byte in vbr:
@@ -120,8 +163,12 @@ def vbr_parser():
 
 def main():
 	vbr_data= vbr_parser()
-	transfer_form().print_list(vbr_data)
+	#transfer_form().print_list(vbr_data)
 	vbr(vbr_data).print_vbr()
 
 if __name__ == "__main__":
 	main()
+
+def reference():
+	# http://www.ntfs.com/ntfs-partition-boot-sector.htm
+	pass
